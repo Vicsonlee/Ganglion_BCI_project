@@ -1,0 +1,50 @@
+3/9:
+-bluepy-helper, bluez-src, btle.py, uuids.json copied to OpenBCI_Python
+-ganglion.py edited: "from btle import..." changed to "from . btle import..."
+btle _startHelper subprocess.Popen add shell=True
+4/9:
+-nuked Windows, time to Linux
+5/9:
+- the great Linux-ing begins
+- sudo apt-get install bluetooth bluez bluez-tools rfkill    (not sure if actually required)
+- sudo apt-get install libgtk2.0-dev
+- sudo apt-get install libcap2-bin
+- sudo setcap 'cap_net_raw,cap_net_admin+eip' /home/vicson/anaconda3/lib/python3.6/site-packages/bluepy/bluepy-helper
+- sudo bash -c 'echo 9 > /sys/kernel/debug/bluetooth/hci0/conn_min_interval'
+- sudo bash -c 'echo 10 > /sys/kernel/debug/bluetooth/hci0/conn_max_interval'
+- seems to capture packets well
+- Linux commands for dummies: hcitool 
+7/9:
+- conn_min and conn_max needs to be redone every time the VM is restarted
+- sample_id starts from 0 and reaches 200 (inclusive) before rolling back to 0, so 201 samples per cycle? weird shit.
+- API list, because fuck you we don't do this for you:
+- OpenBCIBoard: start_streaming(), stop(), disconnect()
+- OpenBCISample: id, channel_data, aux_data, imp_data (accelerometer and impedence data)
+13/9:
+- yeah I slacked so what? bite me
+- exec(open("script.py").read())
+- FFT works, so just the ML part and GUI(?) part left
+16/9:
+- Lord XGBoost why doth thou torment me so
+- sudo ln -s -f /usr/lib/x86_64-linux-gnu/libgomp.so.1 /home/vicson/anaconda3/lib/libgomp.so.1
+- sudo ln -s -f /usr/lib/x86_64-linux-gnu/libstdc++.so.6 libstdc++.so.6
+- sudo ln -s -f /usr/lib/x86_64-linux-gnu/libstdc++.so.6 libstdc++.so
+- Lord XGBoost appears stable, tests required
+17/9:
+- added framework and UI for recording/training data, code size nearly doubled
+- LORD XGBOOST DOTH ANSWER OUR PRAYERS
+- every single part of this program is dodgy and is barely holding together, but it works
+- (for rather obvious inputs, at least)
+- more tests are required using actual heads
+27/9:
+- HEAD DO NOT WORK WE RIOT
+- freq = i * Fs / N , i = index, Fs = sampling freq, N = total number of points
+3/10:
+- Delta: 0.5-4, Theta: 4-7, Alpha: 7-14, Beta: 14-30, Gamma: 30-100 (unused) Hz
+- indices: Delta: 1-8, Theta: 9-14, Alpha: 15-28, Beta: 29-60
+- code revamped to use power bands instead of raw data
+- use model.feature_importances_ to check the importance array
+- system can now differentiate between neutral, jaw clench and double blinks
+- left/right clenches are a little bit more troublesome, I suppose
+
+
