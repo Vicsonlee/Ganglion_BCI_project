@@ -46,5 +46,17 @@ btle _startHelper subprocess.Popen add shell=True
 - use model.feature_importances_ to check the importance array
 - system can now differentiate between neutral, jaw clench and double blinks
 - left/right clenches are a little bit more troublesome, I suppose
-
-
+- terminal version complete(?)
+5/10:
+- GUI hell begins
+- Profile page, Main page, Record page, Predict page
+- API WOO
+MainApp - attributes: profile, main, record, predict
+          methods: goto_<page name>(), quit()
+- GUI base framework is up, now to stuff an elephant into a fridge
+- THERE'S ACTUALLY GITHUB NOW
+- git push -u ganglion_bci master
+- GUI is now threaded
+7/10:
+- Base GUI program complete, it can do most of what the terminal ver did before, and a little more
+- Project complete, but not finished

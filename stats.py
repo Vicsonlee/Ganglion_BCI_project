@@ -7,6 +7,7 @@ from sklearn.model_selection import cross_val_score
 USED_CHANNELS = [0,1]
 MODEL_FILE = "./Profiles/{}_model.pkl"
 RAW_FILE = "./Profiles/{}_raw.pkl"
+profile = "test"
 
 def feature_selection(sample):
     # Edit this to change feature selection
@@ -35,10 +36,10 @@ def feature_selection(sample):
 
     return tmp
 
-with open(MODEL_FILE.format("test"),'rb') as modelFile:
+with open(MODEL_FILE.format(profile),'rb') as modelFile:
 	model = pickle.load(modelFile)
 
-with open(RAW_FILE.format("test"),'rb') as rawFile:
+with open(RAW_FILE.format(profile),'rb') as rawFile:
 	raw_x,label = pickle.load(rawFile)
 
 x_vect = []
