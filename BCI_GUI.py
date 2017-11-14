@@ -1,9 +1,10 @@
+import pickle
+import threading
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
+
 import numpy as np
-import pickle
-import threading
 import OpenBCI_Python.open_bci_ganglion as bci
 from xgboost.sklearn import XGBClassifier
 
@@ -13,8 +14,7 @@ UPDATE_INT = 200 # number of samples between updates
 USED_CHANNELS = [0,1] # channels range from 0 to 3
 LABEL_NAME = ["NEUTRAL", "FORWARD", "LEFT", "RIGHT"]
 DIR_NAME = ["UP","RIGHT","DOWN","LEFT"]
-MODEL_FILE = "./Profiles/{}_model.pkl"
-RAW_FILE = "./Profiles/{}_raw.pkl"
+PROFILE_FILE = "./Profiles/{}_profile.pkl"
 
 ### Globals ###
 profileName = ''
@@ -50,6 +50,10 @@ def update_data():
         # cut dataStack down to STACK_SIZE
         dataStack = dataStack[stackLen-STACK_SIZE:]
     rawData = np.array(dataStack).T
+    for channel in rawData:
+        # baseline correction
+        avg = np.average(channel)
+        channel -= avg
     freqSpec = np.absolute(np.fft.fft(rawData))
 
 def feature_selection(sample):
@@ -155,9 +159,7 @@ class ProfilePage(tk.Frame):
 
         # Check if the files exist
         try:
-            with open(MODEL_FILE.format(name),'rb') as modelFile:
-                pass
-            with open(RAW_FILE.format(name),'rb') as rawFile:
+            with open(PROFILE_FILE.format(name),'rb') as profileFile:
                 pass
             messagebox.showerror("Profile Error","Profile already exists.") 
         except FileNotFoundError:
@@ -176,10 +178,8 @@ class ProfilePage(tk.Frame):
         global model, profileName, raw_x, raw_y
         name = self.entry.get()
         try:
-            with open(MODEL_FILE.format(name),'rb') as modelFile:
-                model = pickle.load(modelFile)
-            with open(RAW_FILE.format(name),'rb') as rawFile:
-                x_vect, y_vect = pickle.load(rawFile)
+            with open(PROFILE_FILE.format(name),'rb') as profileFile:
+                raw_x, raw_y, model = pickle.load(profileFile)
             profileName = name
             self.parent.set_profile(name)
             messagebox.showinfo("Profile Load","Profile successfully loaded.")
@@ -226,6 +226,8 @@ class RecordPage(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
         self.parent = parent
+        self.session_x = []
+        self.session_y = []
 
         progressframe = tk.Frame(self)
 
@@ -249,7 +251,7 @@ class RecordPage(tk.Frame):
         self.b1 = tk.Button(progressframe, width=30, text="Record",command=self.start_record)
         self.b2 = tk.Button(progressframe, width=30, text="Generate and Save Model",command=self.generate_save)
         self.b3 = tk.Button(progressframe, width=30, text="Clear Data",command=self.clear_data)
-        self.b4 = tk.Button(progressframe, width=30, text="Back",command=parent.goto_main)
+        self.b4 = tk.Button(progressframe, width=30, text="Back",command=self.leave)
 
         self.b1.grid()
         self.b2.grid()
@@ -268,12 +270,12 @@ class RecordPage(tk.Frame):
         self.after(STACK_SIZE*5,self.stop_record)
 
     def stop_record(self):
-        global freqSpec, raw_x, raw_y
+        global freqSpec
         self.pBar.stop()
 
         update_data()
-        raw_x.append(freqSpec)
-        raw_y.append(LABEL_NAME.index(self.selection.get() ) )
+        self.session_x.append(freqSpec)
+        self.session_y.append(LABEL_NAME.index(self.selection.get() ) )
         print(len(freqSpec[0]))
 
         self.selector['state'] = 'normal'
@@ -289,15 +291,16 @@ class RecordPage(tk.Frame):
             # if no profile is loaded
             messagebox.showerror("Profile Error","No profile loaded.")
             return
-
+        print("Saving data...")
+        raw_x += self.session_x
+        raw_y += self.session_y
+        self.session_x, self.session_y = [],[]
         print("Training model...")
         model = train_model(raw_x,raw_y)
         print("Saving...")
         # Opening files as wb+ will create files that don't exist
-        with open(MODEL_FILE.format(profileName),'wb+') as modelFile:
-            pickle.dump(model, modelFile)
-        with open(RAW_FILE.format(profileName),'wb+') as rawFile:
-            pickle.dump((raw_x,raw_y), rawFile)
+        with open(PROFILE_FILE.format(profileName),'wb+') as profileFile:
+            pickle.dump((raw_x,raw_y, model), profileFile)
 
         messagebox.showinfo("Generate and Save",
                             "Machine Learning Model has been successfully generated and saved.")
@@ -307,7 +310,18 @@ class RecordPage(tk.Frame):
         if messagebox.askokcancel("Clear Dataset",
                                   "Clear all data in this profile?"):
             raw_x, raw_y = [],[]
+            self.session_x, self.session_y = [],[]
             messagebox.showinfo("Clear Dataset","Profile cleared.")
+
+    def leave(self):
+        if self.session_x:
+            # has recorded data
+            if messagebox.askokcancel("Return to Main Menu",
+                                      "Recorded data will be lost. Are you sure?"):
+                self.session_x, self.session_y = [],[]
+                self.parent.goto_main()
+        else:
+            self.parent.goto_main()
 
 class PredictPage(tk.Frame):
     def __init__(self, parent):
@@ -396,6 +410,7 @@ class PredictPage(tk.Frame):
         self.predictLabel['text'] = "Input: {}".format(LABEL_NAME[pred])
 
         if (self.mazeActive and self.lastPred != pred):
+            # ignore consecutive commands
             self.lastPred = pred
             if (pred != 0):
                 self.move_bot(pred)
@@ -515,7 +530,8 @@ class MainApp(tk.Frame):
 
         self.statusCanvas.pack(side="left")
         self.statusLabel.pack(side="left")
-        
+
+        """
         # debug buttons destroy when done
         b1 = tk.Button(profileframe, text="Profile", command=self.profile.lift)
         b2 = tk.Button(profileframe, text="Main", command=self.main.lift)
@@ -526,6 +542,7 @@ class MainApp(tk.Frame):
         b2.pack(side="right")
         b1.pack(side="right")
         # debug buttons end here
+        """
 
         # start page
         self.profile.lift()
